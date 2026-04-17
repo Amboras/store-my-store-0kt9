@@ -5,12 +5,18 @@ export const revalidate = 3600 // ISR: revalidate every hour
 import { medusaServerClient } from '@/lib/medusa-client'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Truck, RotateCcw, Shield, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import ProductActions from '@/components/product/product-actions'
 import ProductAccordion from '@/components/product/product-accordion'
 import { ProductViewTracker } from '@/components/product/product-view-tracker'
 import { getProductPlaceholder } from '@/lib/utils/placeholder-images'
 import { type VariantExtension } from '@/components/product/product-price'
+import UrgencyBar from '@/components/product/urgency-bar'
+import TrustBadges from '@/components/product/trust-badges'
+import BundleSelector from '@/components/product/bundle-selector'
+
+const SCULPTGLOW_SINGLE_HANDLE = 'sculptglow-cellulite-massager'
+const SCULPTGLOW_BUNDLE_HANDLE = 'sculptglow-pro-bundle-massager-duo-pack'
 
 async function getProduct(handle: string) {
   try {
@@ -99,13 +105,31 @@ export default async function ProductPage({
 
   const allImages = [
     ...(product.thumbnail ? [{ url: product.thumbnail }] : []),
-    ...(product.images || []).filter((img: any) => img.url !== product.thumbnail),
+    ...(product.images || []).filter((img: { url: string }) => img.url !== product.thumbnail),
   ]
 
-  // Use placeholder if no images
   const displayImages = allImages.length > 0
     ? allImages
     : [{ url: getProductPlaceholder(product.id) }]
+
+  // Detect if this is the SculptGlow single — fetch bundle variant id for bundle selector
+  const isSculptGlowSingle = handle === SCULPTGLOW_SINGLE_HANDLE
+  let bundleVariantId: string | null = null
+  let singleVariantId: string | null = product.variants?.[0]?.id || null
+
+  if (isSculptGlowSingle) {
+    try {
+      const bundleProduct = await getProduct(SCULPTGLOW_BUNDLE_HANDLE)
+      bundleVariantId = bundleProduct?.variants?.[0]?.id || null
+    } catch {
+      bundleVariantId = null
+    }
+  }
+
+  const inventoryQuantity = singleVariantId
+    ? variantExtensions[singleVariantId]?.inventory_quantity
+    : undefined
+  const stockLeft = typeof inventoryQuantity === 'number' ? inventoryQuantity : 47
 
   return (
     <>
@@ -126,7 +150,7 @@ export default async function ProductPage({
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
           {/* Product Images */}
           <div className="space-y-3">
-            <div className="relative aspect-[3/4] overflow-hidden bg-muted rounded-sm">
+            <div className="relative aspect-[3/4] overflow-hidden bg-muted rounded-xl">
               <Image
                 src={displayImages[0].url}
                 alt={product.title}
@@ -139,10 +163,10 @@ export default async function ProductPage({
 
             {displayImages.length > 1 && (
               <div className="grid grid-cols-4 gap-3">
-                {displayImages.slice(1, 5).map((image: any, idx: number) => (
+                {displayImages.slice(1, 5).map((image: { url: string }, idx: number) => (
                   <div
                     key={idx}
-                    className="relative aspect-[3/4] overflow-hidden bg-muted rounded-sm"
+                    className="relative aspect-[3/4] overflow-hidden bg-muted rounded-lg"
                   >
                     <Image
                       src={image.url}
@@ -158,15 +182,15 @@ export default async function ProductPage({
           </div>
 
           {/* Product Info */}
-          <div className="lg:sticky lg:top-24 lg:self-start space-y-6">
-            {/* Title & Subtitle */}
+          <div className="lg:sticky lg:top-24 lg:self-start space-y-5">
+            {/* Title */}
             <div>
               {product.subtitle && (
-                <p className="text-sm uppercase tracking-[0.15em] text-muted-foreground mb-2">
+                <p className="text-sm uppercase tracking-[0.15em] font-semibold mb-2" style={{ color: 'var(--brand-secondary)' }}>
                   {product.subtitle}
                 </p>
               )}
-              <h1 className="text-h2 font-heading font-semibold">{product.title}</h1>
+              <h1 className="text-h2 font-heading font-bold" style={{ color: 'var(--brand-primary)' }}>{product.title}</h1>
             </div>
 
             <ProductViewTracker
@@ -177,24 +201,21 @@ export default async function ProductPage({
               value={product.variants?.[0]?.calculated_price?.calculated_amount ?? null}
             />
 
-            {/* Variant Selector + Price + Add to Cart (client component) */}
-            <ProductActions product={product} variantExtensions={variantExtensions} />
+            {/* Urgency Bar */}
+            <UrgencyBar stockLeft={stockLeft} />
 
-            {/* Trust Signals */}
-            <div className="grid grid-cols-3 gap-4 py-6 border-t">
-              <div className="text-center">
-                <Truck className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-xs text-muted-foreground">Free Shipping</p>
-              </div>
-              <div className="text-center">
-                <RotateCcw className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-xs text-muted-foreground">30-Day Returns</p>
-              </div>
-              <div className="text-center">
-                <Shield className="h-5 w-5 mx-auto mb-1.5" strokeWidth={1.5} />
-                <p className="text-xs text-muted-foreground">Secure Checkout</p>
-              </div>
-            </div>
+            {/* Bundle Selector (shown on single product page) or standard actions */}
+            {isSculptGlowSingle && bundleVariantId && singleVariantId ? (
+              <BundleSelector
+                singleVariantId={singleVariantId}
+                bundleVariantId={bundleVariantId}
+              />
+            ) : (
+              <ProductActions product={product} variantExtensions={variantExtensions} />
+            )}
+
+            {/* Trust Badges */}
+            <TrustBadges />
 
             {/* Accordion Sections */}
             <ProductAccordion

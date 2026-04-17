@@ -30,10 +30,10 @@ const body = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Store — Modern Commerce',
-    template: '%s | Store',
+    default: 'SculptGlow — Cellulite Massager',
+    template: '%s | SculptGlow',
   },
-  description: 'Discover curated products crafted with care. A modern ecommerce experience.',
+  description: 'Clinically inspired cellulite massager for firmer, smoother skin. Professional-grade results at home.',
 }
 
 export default function RootLayout({
